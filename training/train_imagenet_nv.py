@@ -40,17 +40,17 @@ def get_parser():
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
     parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)')
-    parser.add_argument('--init-bn0', action='store_true', help='Intialize running batch norm mean to 0')
+    #parser.add_argument('--init-bn0', action='store_true', help='Intialize running batch norm mean to 0')
     parser.add_argument('--print-freq', '-p', default=5, type=int,
                         metavar='N', help='log/print every this many steps (default: 5)')
-    parser.add_argument('--no-bn-wd', action='store_true', help='Remove batch norm from weight decay')
+    #parser.add_argument('--no-bn-wd', action='store_true', help='Remove batch norm from weight decay')
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                         help='evaluate model on validation set')
-    parser.add_argument('--fp16', action='store_true', help='Run model fp16 mode. Default True')
-    parser.add_argument('--loss-scale', type=float, default=1024,
-                        help='Loss scaling, positive power of 2 values can improve fp16 convergence.')
+    #parser.add_argument('--fp16', action='store_true', help='Run model fp16 mode. Default True')
+    #parser.add_argument('--loss-scale', type=float, default=1024,
+    #                    help='Loss scaling, positive power of 2 values can improve fp16 convergence.')
     parser.add_argument('--distributed', action='store_true', help='Run distributed training. Default True')
     parser.add_argument('--dist-url', default='env://', type=str,
                         help='url used to set up distributed training')
@@ -98,20 +98,34 @@ def main():
 
 
     log.console("Loading model")
-    model = resnet.resnet50(bn0=args.init_bn0).cuda()
-    if args.fp16: model = network_to_half(model)
+    #model = resnet.resnet50(bn0=args.init_bn0).cuda()
+    model = resnet.resnet50().cuda()
+    #if args.fp16: model = network_to_half(model)
     if args.distributed: model = dist_utils.DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
     best_top5 = 93 # only save models over 93%. Otherwise it stops to save every time
 
     global model_params, master_params
-    if args.fp16: model_params, master_params = prep_param_lists(model)
-    else: model_params = master_params = model.parameters()
+    #if args.fp16: model_params, master_params = prep_param_lists(model)
+    #else: model_params = master_params = model.parameters()
 
-    optim_params = experimental_utils.bnwd_optim_params(model, model_params, master_params) if args.no_bn_wd else master_params
+    bparams, oparams = [], []
+    for name, param in model.named_parameters():
+        if 'bias' in name:
+            bparams.append(param)
+        else:
+            oparams.append(param)
+
+    optim_params = [{'params':bparams, 'weight_decay':0.},
+                     'params':oparams, 'weight_decay':args.weight_decay}]
+
+    model_params = master_params = model.parameters()
+
+    #optim_params = experimental_utils.bnwd_optim_params(model, model_params, master_params) if args.no_bn_wd else master_params
+
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.SGD(optim_params, 0, momentum=args.momentum, weight_decay=args.weight_decay) # start with 0 lr. Scheduler will change this later
+    optimizer = torch.optim.SGD(optim_params, 0, momentum=args.momentum) # start with 0 lr. Scheduler will change this later
     
     if args.resume:
         checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.local_rank))
@@ -173,19 +187,22 @@ def train(trn_loader, model, criterion, optimizer, scheduler, epoch):
         loss = criterion(output, target)
 
         # compute gradient and do SGD step
-        if args.fp16:
-            loss = loss*args.loss_scale
-            model.zero_grad()
-            loss.backward()
-            model_grads_to_master_grads(model_params, master_params)
-            for param in master_params: param.grad.data = param.grad.data/args.loss_scale
-            optimizer.step()
-            master_params_to_model_params(model_params, master_params)
-            loss = loss/args.loss_scale
-        else:
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        #if args.fp16:
+        #    loss = loss*args.loss_scale
+        #    model.zero_grad()
+        #    loss.backward()
+        #    model_grads_to_master_grads(model_params, master_params)
+        #    for param in master_params: param.grad.data = param.grad.data/args.loss_scale
+        #    optimizer.step()
+        #    master_params_to_model_params(model_params, master_params)
+        #    loss = loss/args.loss_scale
+        #else:
+        #    optimizer.zero_grad()
+        #    loss.backward()
+        #    optimizer.step()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
         # Train batch done. Logging results
         timer.batch_end()
