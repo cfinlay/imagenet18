@@ -1,31 +1,29 @@
-import argparse, os, shutil, time, warnings
-from datetime import datetime
-from pathlib import Path
-import sys, os
-import math
+import argparse
 import collections
+import copy
 import gc
+import os
+import shutil
+import sys
+import time
+import warnings
+from datetime import datetime
 
-import torch
-from torch.autograd import Variable
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 
+import dataloader
+import dist_utils
+import experimental_utils
+import resnet
 # import models
 from fp16util import *
-
-import resnet
-import copy
-
-import dataloader
-import experimental_utils
-import dist_utils
 from logger import TensorboardLogger, FileLogger
 from meter import AverageMeter, NetworkMeter, TimeMeter
+
 
 def get_parser():
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -107,6 +105,7 @@ def main():
     global model_params, master_params
     #if args.fp16: model_params, master_params = prep_param_lists(model)
     #else: model_params = master_params = model.parameters()
+    model_params = master_params = model.parameters()
 
     bparams, oparams = [], []
     for name, param in model.named_parameters():
@@ -116,16 +115,16 @@ def main():
             oparams.append(param)
 
     optim_params = [{'params':bparams, 'weight_decay':0.},
-                     'params':oparams, 'weight_decay':args.weight_decay}]
+                    {'params':oparams, 'weight_decay':args.weight_decay}]
 
-    model_params = master_params = model.parameters()
+    #model_params = master_params = model.parameters()
 
     #optim_params = experimental_utils.bnwd_optim_params(model, model_params, master_params) if args.no_bn_wd else master_params
 
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.SGD(optim_params, 0, momentum=args.momentum) # start with 0 lr. Scheduler will change this later
+    optimizer = torch.optim.SGD(optim_params, 0, momentum=args.momentum, weight_decay=args.weight_decay) # start with 0 lr. Scheduler will change this later
     
     if args.resume:
         checkpoint = torch.load(args.resume, map_location = lambda storage, loc: storage.cuda(args.local_rank))

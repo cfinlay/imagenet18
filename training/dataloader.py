@@ -16,7 +16,7 @@ import pickle
 from tqdm import tqdm
 from dist_utils import env_world_size, env_rank
 
-def get_loaders(traindir, valdir, sz, bs, fp16=True, val_bs=None, workers=8, rect_val=False, min_scale=0.08, distributed=False):
+def get_loaders(traindir, valdir, sz, bs, fp16=False, val_bs=None, workers=8, rect_val=False, min_scale=0.08, distributed=False):
     val_bs = val_bs or bs
     train_tfms = [
             transforms.RandomResizedCrop(sz, scale=(min_scale, 1.0)),
@@ -61,7 +61,7 @@ def create_validation_set(valdir, batch_size, target_size, rect_val, distributed
 class BatchTransformDataLoader():
     # Mean normalization on batch level instead of individual
     # https://github.com/NVIDIA/apex/blob/59bf7d139e20fb4fa54b09c6592a2ff862f3ac7f/examples/imagenet/main.py#L222
-    def __init__(self, loader, fp16=True):
+    def __init__(self, loader, fp16=False):
         self.loader = loader
         self.mean = torch.tensor([0.485 * 255, 0.456 * 255, 0.406 * 255]).cuda().view(1,3,1,1)
         self.std = torch.tensor([0.229 * 255, 0.224 * 255, 0.225 * 255]).cuda().view(1,3,1,1)
