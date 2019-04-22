@@ -11,7 +11,7 @@ __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=1, bias=True)
+                     padding=1, bias=False)
 
 
 class BasicBlock(nn.Module):
@@ -20,10 +20,10 @@ class BasicBlock(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes, affine=False)
+        self.bn1 = nn.BatchNorm2d(planes, affine=True)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes, affine=False)
+        self.bn2 = nn.BatchNorm2d(planes, affine=True)
         self.downsample = downsample
         self.stride = stride
 
@@ -51,13 +51,13 @@ class Bottleneck(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
-        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=True)
-        self.bn1 = nn.BatchNorm2d(planes, affine=False)
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes, affine=True)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-                               padding=1, bias=True)
-        self.bn2 = nn.BatchNorm2d(planes, affine=False)
-        self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=True)
-        self.bn3 = nn.BatchNorm2d(planes * self.expansion, affine=False)
+                               padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes, affine=True)
+        self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * self.expansion, affine=True)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -91,8 +91,8 @@ class ResNet(nn.Module):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                               bias=True)
-        self.bn1 = nn.BatchNorm2d(64, affine=False)
+                               bias=False)
+        self.bn1 = nn.BatchNorm2d(64, affine=True)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -111,8 +111,8 @@ class ResNet(nn.Module):
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=True),
-                nn.BatchNorm2d(planes * block.expansion, affine=False),
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion, affine=True),
             )
 
         layers = []
@@ -145,8 +145,8 @@ def init_dist_weights(model):
     # https://arxiv.org/pdf/1706.02677.pdf
     # https://github.com/pytorch/examples/pull/262
     for m in model.modules():
-        #if isinstance(m, BasicBlock): m.bn2.weight = nn.Parameter(torch.zeros_like(m.bn2.weight))
-        #if isinstance(m, Bottleneck): m.bn3.weight = nn.Parameter(torch.zeros_like(m.bn3.weight))
+        if isinstance(m, BasicBlock): m.bn2.weight = nn.Parameter(torch.zeros_like(m.bn2.weight))
+        if isinstance(m, Bottleneck): m.bn3.weight = nn.Parameter(torch.zeros_like(m.bn3.weight))
         if isinstance(m, nn.Linear): m.weight.data.normal_(0, 0.01)
 
 

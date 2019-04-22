@@ -38,7 +38,7 @@ def get_parser():
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
     parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)')
-    #parser.add_argument('--init-bn0', action='store_true', help='Intialize running batch norm mean to 0')
+    parser.add_argument('--init-bn0', action='store_true', help='Intialize running batch norm mean to 0')
     parser.add_argument('--print-freq', '-p', default=5, type=int,
                         metavar='N', help='log/print every this many steps (default: 5)')
     #parser.add_argument('--no-bn-wd', action='store_true', help='Remove batch norm from weight decay')
@@ -96,11 +96,10 @@ def main():
 
 
     log.console("Loading model")
-    #model = resnet.resnet50(bn0=args.init_bn0).cuda()
-    model = resnet.resnet50().cuda()
+    model = resnet.resnet50(bn0=args.init_bn0).cuda()
     #if args.fp16: model = network_to_half(model)
     if args.distributed: model = dist_utils.DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
-    best_top5 = 93 # only save models over 93%. Otherwise it stops to save every time
+    best_top5 = 80 # only save models over 80%. Otherwise it stops to save every time
 
     global model_params, master_params
     #if args.fp16: model_params, master_params = prep_param_lists(model)
